@@ -1,0 +1,231 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>College Talks</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: Arial, sans-serif;
+        }
+
+        body {
+            background: #f5f5f5;
+            color: #333;
+            line-height: 1.6;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 20px auto;
+            padding: 0 20px;
+        }
+
+        .header {
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .post-form {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+
+        .post-input {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            resize: none;
+            margin-bottom: 10px;
+            min-height: 100px;
+        }
+
+        .post-btn {
+            background: #1DA1F2;
+            color: white;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 20px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        .post-btn:hover {
+            background: #1a91da;
+        }
+
+        .posts-container {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .post {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .post-header {
+            display: flex;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .anonymous-user {
+            font-weight: bold;
+            color: #1DA1F2;
+            margin-right: 10px;
+        }
+
+        .timestamp {
+            color: #666;
+            font-size: 0.9em;
+        }
+
+        .post-content {
+            word-wrap: break-word;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>College Talks</h1>
+        </div>
+
+        <div class="post-form">
+            <textarea class="post-input" placeholder="What's on your mind?"></textarea>
+            <button class="post-btn">Post</button>
+        </div>
+
+        <div class="posts-container" id="postsContainer">
+            <!-- Posts will be added here dynamically -->
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-app.js";
+        import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-analytics.js";
+        import { 
+            getFirestore, 
+            collection, 
+            addDoc, 
+            onSnapshot, 
+            query, 
+            orderBy, 
+            limit 
+        } from "https://www.gstatic.com/firebasejs/11.5.0/firebase-firestore.js";
+    
+        // Your Firebase configuration
+        const firebaseConfig = {
+            apiKey: "AIzaSyDCFs2sB1l1LSq9N4wmIiHRGZ7rsdFuPs8",
+            authDomain: "anonymous-chat-76a85.firebaseapp.com",
+            projectId: "anonymous-chat-76a85",
+            storageBucket: "anonymous-chat-76a85.firebasestorage.app",
+            messagingSenderId: "748691544992",
+            appId: "1:748691544992:web:a9add57e30b1a2cf3c62c5",
+            measurementId: "G-B188J15SCN"
+        };
+    
+        // Initialize Firebase
+        try {
+            const app = initializeApp(firebaseConfig);
+            const analytics = getAnalytics(app);
+            const db = getFirestore(app);
+            console.log("Firebase initialized successfully");
+    
+            // DOM elements
+            const postInput = document.querySelector('.post-input');
+            const postBtn = document.querySelector('.post-btn');
+            const postsContainer = document.getElementById('postsContainer');
+    
+            // Add post when button is clicked
+            postBtn.addEventListener('click', () => {
+            console.log("Post button clicked");
+            addPost();
+        });
+            // Add post when Enter is pressed (without Shift)
+            postInput.addEventListener('keypress', (e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                    e.preventDefault();
+                    addPost();
+                }
+            });
+    
+            async function addPost() {
+                const content = postInput.value.trim();
+                if (content) {
+                    try {
+                        await addDoc(collection(db, 'tweets'), {
+                            content: content,
+                            timestamp: new Date()
+                        });
+                        console.log("Post added successfully");
+                        postInput.value = '';
+                    } catch (error) {
+                        console.error('Error adding post:', error);
+                    }
+                } else {
+                    console.log("No content to post");
+                }
+            }
+    
+            // Real-time listener for tweets
+            const q = query(
+                collection(db, 'tweets'),
+                orderBy('timestamp', 'desc'),
+                limit(50)
+            );
+    
+            onSnapshot(q, (snapshot) => {
+                const tweets = [];
+                snapshot.forEach(doc => {
+                    tweets.push({ id: doc.id, ...doc.data() });
+                });
+                renderPosts(tweets);
+            }, (error) => {
+                console.error('Error fetching tweets:', error);
+            });
+    
+            function renderPosts(tweets) {
+                postsContainer.innerHTML = '';
+                tweets.forEach(tweet => {
+                    const postElement = document.createElement('div');
+                    postElement.className = 'post';
+                    const timestamp = tweet.timestamp instanceof Date ?
+                        tweet.timestamp.toLocaleString() :
+                        new Date(tweet.timestamp).toLocaleString();
+                    
+                    postElement.innerHTML = `
+                        <div class="post-header">
+                            <span class="anonymous-user">Anonymous</span>
+                            <span class="timestamp">${timestamp}</span>
+                        </div>
+                        <div class="post-content">${escapeHTML(tweet.content)}</div>
+                    `;
+                    postsContainer.appendChild(postElement);
+                });
+            }
+    
+            function escapeHTML(str) {
+                return str
+                    .replace(/&/g, '&')
+                    .replace(/</g, '<')
+                    .replace(/>/g, '>')
+                    .replace(/"/g, '"')
+                    .replace(/'/g, '');
+            }
+    
+        } catch (error) {
+            console.error("Firebase initialization error:", error);
+        }
+    </script>
